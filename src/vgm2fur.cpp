@@ -1,4 +1,5 @@
 #include "vgm2fur.hpp"
+#include "filebrowser.h"
 
 #include <algorithm>
 #include <cctype>
@@ -2385,7 +2386,12 @@ bool convert_vgm_to_fur_file(const std::string& vgm_path,
         return false;
     }
     size_t written = std::fwrite(fur_buf.data(), 1, fur_buf.size(), f);
+    ui_fsync_file(f);
     std::fclose(f);
+    auto slash = fur_path.find_last_of('/');
+    if (slash != std::string::npos && slash > 0) {
+        ui_sync_dir(fur_path.substr(0, slash).c_str());
+    }
     if (written != fur_buf.size()) {
         if (err_msg) *err_msg = "Failed to write complete .fur file";
         return false;

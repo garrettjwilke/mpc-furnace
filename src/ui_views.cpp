@@ -38,15 +38,41 @@ static const char *kBrowserExts[] = {
     ".fur", ".vgm", ".vgz", ".dmf", ".mod", ".s3m", ".xm",  ".it",
     ".ftm", ".fui", ".dmp", ".tfi", ".vgi", ".opm", ".wav", nullptr};
 
+std::string TrackerViews::get_active_save_dir() const {
+  if (fb_state_.cwd[0] != '\0') {
+    return fb_state_.cwd;
+  }
+  const auto &cur = FurnaceBridge::instance().current_path;
+  if (!cur.empty()) {
+    auto slash = cur.rfind('/');
+    if (slash != std::string::npos && slash > 0) {
+      return cur.substr(0, slash);
+    }
+  }
+  if (!browse_dir_.empty() && browse_dir_ != "/media" && browse_dir_ != ".") {
+    return browse_dir_;
+  }
+  if (fb_state_.external_path[0] != '\0') {
+    return fb_state_.external_path;
+  }
+  if (fb_state_.internal_path[0] != '\0') {
+    return fb_state_.internal_path;
+  }
+  return ".";
+}
+
 void TrackerViews::init(const std::string &initial_dir) {
   browse_dir_ = initial_dir;
   struct ui_filebrowser_config cfg{};
-  cfg.initial_path = browse_dir_.c_str();
+  cfg.initial_path = (!browse_dir_.empty() && browse_dir_ != "/media") ? browse_dir_.c_str() : nullptr;
   cfg.title = "FURNACE FILES";
   cfg.action_label = "LOAD";
   cfg.options = UI_FB_PRESET_DEFAULT;
   cfg.extensions = kBrowserExts;
   ui_filebrowser_init(&fb_state_, &cfg);
+  if (fb_state_.cwd[0] != '\0') {
+    browse_dir_ = fb_state_.cwd;
+  }
   fb_initialized_ = true;
   vgm_import_stage_ = 0;
 }
@@ -1409,7 +1435,7 @@ void TrackerViews::draw_browser_view(struct ui *u, const struct input *in,
 
     // Render the locked .fur extension immediately following the name
     int ty = 58;
-    int ext_x = 16 + (text_ed_.len + (text_ed_.cursor == text_ed_.len ? 1 : 0)) * 6;
+    int ext_x = 16 + text_ed_.len * 6;
     if (ext_x + 24 < UI_W - 16) {
       ui_text(u, ext_x, ty, ".fur", COL_INS, 1);
     }
@@ -1427,7 +1453,8 @@ void TrackerViews::draw_browser_view(struct ui *u, const struct input *in,
       while (!fn.empty() && (fn.back() == ' ' || fn.back() == '\t'))
         fn.pop_back();
 
-      // If user typed .fur at the end, strip it so we always append .fur cleanly
+      // If user typed .fur at the end, strip it so we always append .fur
+      // cleanly
       if (fn.size() >= 4) {
         std::string tail = fn.substr(fn.size() - 4);
         for (char &c : tail)
@@ -1444,13 +1471,17 @@ void TrackerViews::draw_browser_view(struct ui *u, const struct input *in,
       if (!fn.empty() && fn[0] == '/') {
         dst_path = fn;
       } else if (vgm_import_dst_dir_.empty()) {
-        dst_path = browse_dir_ + "/" + fn;
+        dst_path = get_active_save_dir() + "/" + fn;
       } else if (vgm_import_dst_dir_.back() == '/') {
         dst_path = vgm_import_dst_dir_ + fn;
       } else {
         dst_path = vgm_import_dst_dir_ + "/" + fn;
       }
 
+      if (!vgm_import_dst_dir_.empty()) {
+        browse_dir_ = vgm_import_dst_dir_;
+        ui_filebrowser_set_cwd(&fb_state_, browse_dir_.c_str());
+      }
       bool ok = fb.import_vgm(vgm_import_src_path_, dst_path);
       ui_filebrowser_refresh(&fb_state_);
       if (ok) {
@@ -1491,7 +1522,7 @@ void TrackerViews::draw_browser_view(struct ui *u, const struct input *in,
   if (vgm_import_stage_ == 1) {
     cs.modal_lock = true;
     ui_filebrowser(u, 0, 0, UI_W, UI_H, &fb_state_,
-                    ui_filebrowser_style_default(), nullptr);
+                   ui_filebrowser_style_default(), nullptr);
 
     const char *q_labels[3] = {"Cancel", "", "Yes"};
     int active_s = -1;
@@ -1556,6 +1587,9 @@ void TrackerViews::draw_browser_view(struct ui *u, const struct input *in,
 
   int status = ui_filebrowser(u, 0, 0, UI_W, UI_H, &fb_state_,
                               ui_filebrowser_style_default(), in);
+  if (fb_state_.cwd[0] != '\0') {
+    browse_dir_ = fb_state_.cwd;
+  }
   if (status == UI_FB_CANCEL) {
     cs.active_view =
         (cs.prev_view == AppView::Browser) ? AppView::Pattern : cs.prev_view;
@@ -1593,6 +1627,10 @@ void TrackerViews::draw_browser_view(struct ui *u, const struct input *in,
       auto bdot = base.rfind('.');
       if (bdot != std::string::npos && bdot > 0)
         base = base.substr(0, bdot);
+      while (!base.empty() && (base.front() == ' ' || base.front() == '\t'))
+        base.erase(base.begin());
+      while (!base.empty() && (base.back() == ' ' || base.back() == '\t'))
+        base.pop_back();
       if (base.empty())
         base = "imported";
       std::snprintf(text_buf_, sizeof(text_buf_), "%s", base.c_str());
@@ -1644,8 +1682,12 @@ int TrackerViews::draw_menu_view(struct ui *u, const struct input *in,
           fn = "song.fur";
         if (fn.find(".fur") == std::string::npos)
           fn += ".fur";
-        std::string full = (fn[0] == '/') ? fn : (browse_dir_ + "/" + fn);
+        std::string active_dir = get_active_save_dir();
+        std::string full = (fn[0] == '/') ? fn : (active_dir + "/" + fn);
         fb.save_fur(full);
+        browse_dir_ = active_dir;
+        ui_filebrowser_set_cwd(&fb_state_, active_dir.c_str());
+        ui_filebrowser_refresh(&fb_state_);
       } else if (text_edit_target_ == 1) {
         eng.song.name = text_buf_;
         fb.dirty = true;
@@ -1687,7 +1729,7 @@ int TrackerViews::draw_menu_view(struct ui *u, const struct input *in,
       confirm_quit_ = false;
       cs.modal_lock = false;
     } else if (sk == 1) {
-      fb.save_fur(browse_dir_ + "/autosave.fur");
+      fb.save_fur(get_active_save_dir() + "/autosave.fur");
       ui_quit(u);
       return 1;
     } else if (sk == 2) {
@@ -1772,9 +1814,9 @@ int TrackerViews::draw_menu_view(struct ui *u, const struct input *in,
       cs.modal_lock = true;
       return 0;
     } else if (menu_cursor_ == 4) {
-      fb.export_vgm(browse_dir_ + "/export.vgm");
+      fb.export_vgm(get_active_save_dir() + "/export.vgm");
     } else if (menu_cursor_ == 5) {
-      fb.export_wav(browse_dir_ + "/export.wav", 30);
+      fb.export_wav(get_active_save_dir() + "/export.wav", 30);
     } else if (menu_cursor_ == 6) {
       ui_usb_sd_init(&usb_);
       usb_open_ = true;
@@ -1879,7 +1921,16 @@ int TrackerViews::draw_frame(struct ui *u, const struct input *in,
       return 0;
     usb_open_ = false;
     cs.modal_lock = false;
-    init(browse_dir_);
+    struct ui_filebrowser_config cfg{};
+    cfg.initial_path = (!browse_dir_.empty() && browse_dir_ != "/media") ? browse_dir_.c_str() : nullptr;
+    cfg.title = "FURNACE FILES";
+    cfg.action_label = "LOAD";
+    cfg.options = UI_FB_PRESET_DEFAULT;
+    cfg.extensions = kBrowserExts;
+    ui_filebrowser_init(&fb_state_, &cfg);
+    if (fb_state_.cwd[0] != '\0') {
+      browse_dir_ = fb_state_.cwd;
+    }
   }
 
   ui_clear(u, COL_BG);

@@ -79,7 +79,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::string start_dir = ".";
+    std::string start_dir = "";
     if (argc > 1 && argv[1] && argv[1][0] != '\0') {
         std::string arg = argv[1];
         // If argument looks like a tracker file, load it; otherwise treat as browse directory
@@ -98,8 +98,6 @@ int main(int argc, char** argv) {
         } else {
             start_dir = arg;
         }
-    } else if (access("/media", R_OK) == 0) {
-        start_dir = "/media";
     }
 
     AppContext ctx;

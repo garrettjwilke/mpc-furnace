@@ -19,6 +19,8 @@ public:
     // Unbind the SD card if USB storage is still active. Safe to call on quit.
     void stop_usb();
 
+    std::string get_active_save_dir() const;
+
     // Returns non-zero if the application should exit
     int draw_frame(struct ui* u, const struct input* in, ControlSurfaceState& cs);
 

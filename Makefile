@@ -26,13 +26,13 @@ DEFS = -D_DEFAULT_SOURCE -DHAVE_DIRENT_TYPE
 
 HOSTCC  = cc
 HOSTCXX = c++
-HOST_CFLAGS   = -O2 -g -Wall -Wextra -std=c11 $(DEFS) $(INCLUDES) -I $(FUR_HOST_BUILD)
-HOST_CXXFLAGS = -O2 -g -Wall -Wextra -Wno-unused-parameter -std=c++14 $(DEFS) $(INCLUDES) -I $(FUR_HOST_BUILD)
+HOST_CFLAGS   = -O2 -g -Wall -Wextra -Wno-deprecated-declarations -std=c11 $(DEFS) $(INCLUDES) -I $(FUR_HOST_BUILD)
+HOST_CXXFLAGS = -O2 -g -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-deprecated-declarations -Wno-deprecated-literal-operator -std=c++14 $(DEFS) $(INCLUDES) -I $(FUR_HOST_BUILD)
 
 ZIGCC  = zig cc -target aarch64-linux-musl
 ZIGCXX = zig c++ -target aarch64-linux-musl
-DEV_CFLAGS   = -O2 -Wall -Wextra -std=c11 $(DEFS) $(INCLUDES) -I $(FUR_DEV_BUILD)
-DEV_CXXFLAGS = -O2 -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-deprecated-literal-operator -std=c++14 $(DEFS) $(INCLUDES) -I $(FUR_DEV_BUILD)
+DEV_CFLAGS   = -O2 -Wall -Wextra -Wno-deprecated-declarations -std=c11 $(DEFS) $(INCLUDES) -I $(FUR_DEV_BUILD)
+DEV_CXXFLAGS = -O2 -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-deprecated-declarations -Wno-deprecated-literal-operator -std=c++14 $(DEFS) $(INCLUDES) -I $(FUR_DEV_BUILD)
 
 JOBS ?= 8
 

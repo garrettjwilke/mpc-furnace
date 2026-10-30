@@ -154,7 +154,8 @@ int main() {
   unlink(wav_in_path.c_str());
   unlink(wav_out_path.c_str());
 
-  std::printf("[6/7] Testing Sega Genesis VGM verification & native vgm2fur conversion...\n");
+  std::printf("[6/7] Testing Sega Genesis VGM verification & native vgm2fur "
+              "conversion...\n");
   const std::string gen_vgm_path = "/tmp/mpc_test_genesis.vgm";
   const std::string gb_vgm_path = "/tmp/mpc_test_gameboy.vgm";
   const std::string vgm_fur_out = "/tmp/mpc_test_imported.fur";
@@ -167,14 +168,16 @@ int main() {
   assert(fb.export_vgm(gen_vgm_path));
 
   std::string vgm_err;
-  assert(fb.is_genesis_vgm(gen_vgm_path, &vgm_err) && "Expected valid Sega Genesis VGM");
+  assert(fb.is_genesis_vgm(gen_vgm_path, &vgm_err) &&
+         "Expected valid Sega Genesis VGM");
 
   // 2) Export a Game Boy VGM from preset 2 and verify is_genesis_vgm rejects it
   fb.create_new_with_preset(2); // Nintendo Game Boy
   fb.create_demo_pattern();
   assert(fb.export_vgm(gb_vgm_path));
   vgm_err.clear();
-  assert(!fb.is_genesis_vgm(gb_vgm_path, &vgm_err) && "Expected Game Boy VGM to be rejected");
+  assert(!fb.is_genesis_vgm(gb_vgm_path, &vgm_err) &&
+         "Expected Game Boy VGM to be rejected");
   assert(!vgm_err.empty());
 
   // 3) Convert and load the Sega Genesis VGM via fb.import_vgm()
@@ -192,7 +195,8 @@ int main() {
   assert(has_nonzero_audio(pcm.data(), static_cast<int>(pcm.size())) &&
          "Expected non-zero audio from imported Genesis VGM");
 
-  // 4) Test compressed .vgz with YM2612 Extended Ch3, DAC data block (0x67 + 0xE0 + 0x80..0x8F), PSG, and GD3 metadata
+  // 4) Test compressed .vgz with YM2612 Extended Ch3, DAC data block (0x67 +
+  // 0xE0 + 0x80..0x8F), PSG, and GD3 metadata
   {
     std::vector<uint8_t> raw_vgm(0x80, 0);
     std::memcpy(raw_vgm.data(), "Vgm ", 4);
@@ -202,12 +206,12 @@ int main() {
       raw_vgm[off + 2] = static_cast<uint8_t>((v >> 16) & 0xFF);
       raw_vgm[off + 3] = static_cast<uint8_t>((v >> 24) & 0xFF);
     };
-    put32(0x08, 0x00000150); // Version 1.50
-    put32(0x0C, 3579545);    // SN76489 clock
-    put32(0x2C, 7670454);    // YM2612 clock
-    put32(0x18, 735 * 4);    // Total samples
-    put32(0x24, 60);         // 60 Hz rate
-    put32(0x34, 0x80 - 0x34);// VGM data offset -> 0x80
+    put32(0x08, 0x00000150);  // Version 1.50
+    put32(0x0C, 3579545);     // SN76489 clock
+    put32(0x2C, 7670454);     // YM2612 clock
+    put32(0x18, 735 * 4);     // Total samples
+    put32(0x24, 60);          // 60 Hz rate
+    put32(0x34, 0x80 - 0x34); // VGM data offset -> 0x80
 
     // 0x67 data block (type 0x00 = YM2612 PCM, 64 bytes of sine/square wave)
     raw_vgm.push_back(0x67);
@@ -231,7 +235,8 @@ int main() {
     raw_vgm.insert(raw_vgm.end(), {0x52, 0xAC, 0x22, 0x52, 0xA6, 0xA0});
     raw_vgm.insert(raw_vgm.end(), {0x52, 0xA2, 0x22, 0x52, 0x28, 0xF2});
     // PSG tone 0 + noise
-    raw_vgm.insert(raw_vgm.end(), {0x50, 0x8A, 0x50, 0x10, 0x50, 0x92, 0x50, 0xE4, 0x50, 0xF3});
+    raw_vgm.insert(raw_vgm.end(), {0x50, 0x8A, 0x50, 0x10, 0x50, 0x92, 0x50,
+                                   0xE4, 0x50, 0xF3});
     // Seek PCM bank to 0 and stream 32 DAC samples with 8-sample waits (0x88)
     raw_vgm.insert(raw_vgm.end(), {0xE0, 0x00, 0x00, 0x00, 0x00});
     for (int i = 0; i < 32; i++) {
@@ -264,8 +269,10 @@ int main() {
     push_utf16("Sega Mega Drive"); // System EN
     push_utf16("");                // System JP
     push_utf16("Masato Test");     // Author EN
-    for (int i = 0; i < 4; i++) push_utf16("");
-    uint32_t gd3_len = static_cast<uint32_t>(raw_vgm.size() - (gd3_len_pos + 4));
+    for (int i = 0; i < 4; i++)
+      push_utf16("");
+    uint32_t gd3_len =
+        static_cast<uint32_t>(raw_vgm.size() - (gd3_len_pos + 4));
     put32(gd3_len_pos, gd3_len);
     put32(0x04, static_cast<uint32_t>(raw_vgm.size() - 4));
 
@@ -277,7 +284,8 @@ int main() {
 
     assert(fb.is_genesis_vgm(vgz_path, &vgm_err));
     assert(fb.import_vgm(vgz_path, vgm_fur_out));
-    assert(std::string(fb.engine().song.name) == "Sonic Test - Green Hill Test");
+    assert(std::string(fb.engine().song.name) ==
+           "Sonic Test - Green Hill Test");
     assert(std::string(fb.engine().song.author) == "Masato Test");
     assert(fb.engine().getTotalChannelCount() == 13); // 9 FM (Ext Ch3) + 4 PSG
     assert(fb.engine().song.sampleLen >= 1);
@@ -288,7 +296,8 @@ int main() {
   unlink(gb_vgm_path.c_str());
   unlink(vgm_fur_out.c_str());
 
-  std::printf("[7/7] Testing ControlSurface, 320x240 UI Views & Browser VGM Import Flow...\n");
+  std::printf("[7/7] Testing ControlSurface, 320x240 UI Views & Browser VGM "
+              "Import Flow...\n");
   std::vector<uint32_t> fb_px(UI_W * UI_H, 0);
   struct ui u{};
   u.px = fb_px.data();
@@ -326,7 +335,8 @@ int main() {
   assert(count_nonzero_pixels(fb_px.data(), UI_BG) > 500);
 
   // Test end-to-end UI File Browser VGM import workflow:
-  // Create the host sandbox directory ("build/test_fb/data") with a Genesis .vgm and a Game Boy .vgm
+  // Create the host sandbox directory ("build/test_fb/data") with a Genesis
+  // .vgm and a Game Boy .vgm
   mkdir("build/test_fb", 0755);
   mkdir("build/test_fb/media", 0755);
   mkdir("build/test_fb/media/MPC", 0755);
@@ -349,9 +359,13 @@ int main() {
 
   views.init(test_dir);
   cs.state.active_view = AppView::Browser;
-  views.draw_frame(&u, &in, cs.state); // Initial render in test_dir (entry 0 is "..", entry 1 is "01_bad_gb.vgm", entry 2 is "02_sonic_gen.vgm")
+  views.draw_frame(
+      &u, &in,
+      cs.state); // Initial render in test_dir (entry 0 is "..", entry 1 is
+                 // "01_bad_gb.vgm", entry 2 is "02_sonic_gen.vgm")
 
-  // Turn encoder +1 to select "01_bad_gb.vgm". Press B3 (LOAD) -> should reject non-Genesis VGM and stay in Browser
+  // Turn encoder +1 to select "01_bad_gb.vgm". Press B3 (LOAD) -> should reject
+  // non-Genesis VGM and stay in Browser
   in.encoder = 1;
   views.draw_frame(&u, &in, cs.state);
   in.encoder = 0;
@@ -359,9 +373,11 @@ int main() {
   in.down = (1u << IN_B3);
   views.draw_frame(&u, &in, cs.state);
   in.down = 0;
-  assert(cs.state.active_view == AppView::Browser && "Non-Genesis VGM must stay in Browser");
+  assert(cs.state.active_view == AppView::Browser &&
+         "Non-Genesis VGM must stay in Browser");
 
-  // Turn encoder +1 to select "02_sonic_gen.vgm" and press B3 (LOAD) -> enters Stage 1 (Confirm Popup: "Convert VGM to Furnace?")
+  // Turn encoder +1 to select "02_sonic_gen.vgm" and press B3 (LOAD) -> enters
+  // Stage 1 (Confirm Popup: "Convert VGM to Furnace?")
   in.encoder = 1;
   views.draw_frame(&u, &in, cs.state);
   in.encoder = 0;
@@ -376,7 +392,8 @@ int main() {
   in.down = (1u << IN_B1);
   views.draw_frame(&u, &in, cs.state);
   in.down = 0;
-  assert(!cs.state.modal_lock && "Cancel should dismiss popup back to normal browser");
+  assert(!cs.state.modal_lock &&
+         "Cancel should dismiss popup back to normal browser");
 
   // Press B3 (LOAD) again -> re-opens Stage 1 Confirm Popup
   in.down = (1u << IN_B3);
@@ -391,21 +408,38 @@ int main() {
   assert(cs.state.active_view == AppView::Browser && !cs.state.modal_lock &&
          "Should now be in Save Folder Selection stage");
 
-  // Press B3 (SAVE HERE) in folder browser -> enters Stage 3 (Save .fur Filename text editor, pre-filled with 02_sonic_gen.fur)
+  // Press B3 (SAVE HERE) in folder browser -> enters Stage 3 (Save .fur
+  // Filename text editor, pre-filled with 02_sonic_gen.fur)
   in.down = (1u << IN_B3);
   views.draw_frame(&u, &in, cs.state);
   in.down = 0;
   assert(cs.state.active_view == AppView::Browser && cs.state.modal_lock &&
          "Should now be in Filename Text Editor stage");
 
-  // Press B3 (OK) in text editor -> converts VGM to 02_sonic_gen.fur, loads it, and opens Pattern view!
+  // Press B3 (OK) in text editor -> converts VGM to 02_sonic_gen.fur, loads it,
+  // and opens Pattern view!
   in.down = (1u << IN_B3);
   views.draw_frame(&u, &in, cs.state);
   in.down = 0;
-  assert(cs.state.active_view == AppView::Pattern && "Should switch to Pattern view after importing VGM");
+  assert(cs.state.active_view == AppView::Pattern &&
+         "Should switch to Pattern view after importing VGM");
   assert(!cs.state.modal_lock);
   assert(fb.current_path == ui_expected_fur);
-  assert(access(ui_expected_fur.c_str(), F_OK) == 0 && "Converted .fur file should exist on disk");
+  assert(access(ui_expected_fur.c_str(), F_OK) == 0 &&
+         "Converted .fur file should exist on disk");
+
+  // Verify get_active_save_dir() tracks the active directory
+  assert(views.get_active_save_dir() == test_dir &&
+         "Active save directory should track imported folder");
+
+  // Test menu save into active folder
+  cs.state.active_view = AppView::Menu;
+  in.down = (1u << IN_B2); // activate menu item 0 (Preset) or encoder press
+  in.down = 0;
+  std::string test_save_fur = test_dir + "/menu_save_test.fur";
+  assert(fb.save_fur(test_save_fur) && "Save fur with atomic write and fsync must succeed");
+  assert(access(test_save_fur.c_str(), F_OK) == 0 && "File must exist on disk");
+  unlink(test_save_fur.c_str());
 
   unlink(ui_gb_vgm.c_str());
   unlink(ui_gen_vgm.c_str());

@@ -1,5 +1,6 @@
 #include "furnace_bridge.hpp"
 #include "vgm2fur.hpp"
+#include "filebrowser.h"
 
 #include <algorithm>
 #include <cmath>
@@ -175,16 +176,8 @@ bool FurnaceBridge::save_fur(const std::string& path) {
         status_msg = "saveFur failed";
         return false;
     }
-    FILE* f = std::fopen(path.c_str(), "wb");
-    if (!f) {
-        w->finish();
-        delete w;
-        status_msg = "Cannot write " + path;
-        return false;
-    }
-    size_t written = std::fwrite(w->getFinalBuf(), 1, w->size(), f);
-    std::fclose(f);
-    bool ok = (written == w->size());
+
+    bool ok = (ui_safe_atomic_write(path.c_str(), w->getFinalBuf(), w->size()) == 0);
     w->finish();
     delete w;
 
@@ -193,7 +186,7 @@ bool FurnaceBridge::save_fur(const std::string& path) {
         dirty = false;
         status_msg = "Saved " + path;
     } else {
-        status_msg = "Write error";
+        status_msg = "Cannot write " + path;
     }
     return ok;
 }
@@ -204,18 +197,11 @@ bool FurnaceBridge::export_vgm(const std::string& path) {
         status_msg = "VGM export failed";
         return false;
     }
-    FILE* f = std::fopen(path.c_str(), "wb");
-    if (!f) {
-        w->finish();
-        delete w;
-        status_msg = "Cannot write VGM";
-        return false;
-    }
-    size_t written = std::fwrite(w->getFinalBuf(), 1, w->size(), f);
-    std::fclose(f);
-    bool ok = (written == w->size());
+
+    bool ok = (ui_safe_atomic_write(path.c_str(), w->getFinalBuf(), w->size()) == 0);
     w->finish();
     delete w;
+
     status_msg = ok ? ("Exported VGM: " + path) : "VGM write error";
     return ok;
 }
@@ -301,7 +287,13 @@ bool FurnaceBridge::export_wav(const std::string& path, int max_seconds) {
 
     std::fseek(f, 0, SEEK_SET);
     std::fwrite(header, 1, sizeof(header), f);
+    ui_fsync_file(f);
     std::fclose(f);
+
+    auto slash = path.find_last_of('/');
+    if (slash != std::string::npos && slash > 0) {
+        ui_sync_dir(path.substr(0, slash).c_str());
+    }
 
     status_msg = "Exported WAV: " + path;
     return true;
