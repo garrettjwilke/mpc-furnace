@@ -58,7 +58,7 @@ private:
     bool fb_initialized_ = false;
     std::string browse_dir_ = ".";
 
-    // VGM import wizard state (0=browse, 1=select save folder, 2=enter .fur filename)
+    // VGM import wizard state (0=browse, 1=confirm popup, 2=select save folder, 3=enter .fur filename)
     int vgm_import_stage_ = 0;
     struct ui_filebrowser vgm_save_fb_{};
     std::string vgm_import_src_path_;

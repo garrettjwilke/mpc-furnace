@@ -361,7 +361,7 @@ int main() {
   in.down = 0;
   assert(cs.state.active_view == AppView::Browser && "Non-Genesis VGM must stay in Browser");
 
-  // Turn encoder +1 to select "02_sonic_gen.vgm" and press B3 (LOAD) -> enters Stage 1 (Choose Save Folder)
+  // Turn encoder +1 to select "02_sonic_gen.vgm" and press B3 (LOAD) -> enters Stage 1 (Confirm Popup: "Convert VGM to Furnace?")
   in.encoder = 1;
   views.draw_frame(&u, &in, cs.state);
   in.encoder = 0;
@@ -369,9 +369,29 @@ int main() {
   in.down = (1u << IN_B3);
   views.draw_frame(&u, &in, cs.state);
   in.down = 0;
-  assert(cs.state.active_view == AppView::Browser && "Should now be in Save Folder Selection stage");
+  assert(cs.state.active_view == AppView::Browser && cs.state.modal_lock &&
+         "Should now be in Confirm Popup stage");
 
-  // Press B3 (SAVE HERE) in folder browser -> enters Stage 2 (Save .fur Filename text editor, pre-filled with 02_sonic_gen.fur)
+  // Press B1 (Cancel) -> should cancel popup and return to normal browsing
+  in.down = (1u << IN_B1);
+  views.draw_frame(&u, &in, cs.state);
+  in.down = 0;
+  assert(!cs.state.modal_lock && "Cancel should dismiss popup back to normal browser");
+
+  // Press B3 (LOAD) again -> re-opens Stage 1 Confirm Popup
+  in.down = (1u << IN_B3);
+  views.draw_frame(&u, &in, cs.state);
+  in.down = 0;
+  assert(cs.state.modal_lock && "Should re-enter Confirm Popup stage");
+
+  // Press B3 (Yes) on popup -> enters Stage 2 (Choose Save Folder browser)
+  in.down = (1u << IN_B3);
+  views.draw_frame(&u, &in, cs.state);
+  in.down = 0;
+  assert(cs.state.active_view == AppView::Browser && !cs.state.modal_lock &&
+         "Should now be in Save Folder Selection stage");
+
+  // Press B3 (SAVE HERE) in folder browser -> enters Stage 3 (Save .fur Filename text editor, pre-filled with 02_sonic_gen.fur)
   in.down = (1u << IN_B3);
   views.draw_frame(&u, &in, cs.state);
   in.down = 0;
