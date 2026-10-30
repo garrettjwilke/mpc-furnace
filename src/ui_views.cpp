@@ -64,7 +64,9 @@ std::string TrackerViews::get_active_save_dir() const {
 void TrackerViews::init(const std::string &initial_dir) {
   browse_dir_ = initial_dir;
   struct ui_filebrowser_config cfg{};
-  cfg.initial_path = (!browse_dir_.empty() && browse_dir_ != "/media") ? browse_dir_.c_str() : nullptr;
+  cfg.initial_path = (!browse_dir_.empty() && browse_dir_ != "/media")
+                         ? browse_dir_.c_str()
+                         : nullptr;
   cfg.title = "FURNACE FILES";
   cfg.action_label = "LOAD";
   cfg.options = UI_FB_PRESET_DEFAULT;
@@ -1922,7 +1924,9 @@ int TrackerViews::draw_frame(struct ui *u, const struct input *in,
     usb_open_ = false;
     cs.modal_lock = false;
     struct ui_filebrowser_config cfg{};
-    cfg.initial_path = (!browse_dir_.empty() && browse_dir_ != "/media") ? browse_dir_.c_str() : nullptr;
+    cfg.initial_path = (!browse_dir_.empty() && browse_dir_ != "/media")
+                           ? browse_dir_.c_str()
+                           : nullptr;
     cfg.title = "FURNACE FILES";
     cfg.action_label = "LOAD";
     cfg.options = UI_FB_PRESET_DEFAULT;
