@@ -58,6 +58,12 @@ private:
     bool fb_initialized_ = false;
     std::string browse_dir_ = ".";
 
+    // VGM import wizard state (0=browse, 1=select save folder, 2=enter .fur filename)
+    int vgm_import_stage_ = 0;
+    struct ui_filebrowser vgm_save_fb_{};
+    std::string vgm_import_src_path_;
+    std::string vgm_import_dst_dir_;
+
     // USB SD card access. The toolkit screen owns the frame while this is open.
     bool usb_open_ = false;
     struct ui_usb_sd usb_{};

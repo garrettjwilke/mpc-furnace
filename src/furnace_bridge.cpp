@@ -1,4 +1,5 @@
 #include "furnace_bridge.hpp"
+#include "vgm2fur.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -217,6 +218,23 @@ bool FurnaceBridge::export_vgm(const std::string& path) {
     delete w;
     status_msg = ok ? ("Exported VGM: " + path) : "VGM write error";
     return ok;
+}
+
+bool FurnaceBridge::is_genesis_vgm(const std::string& path, std::string* err_msg) const {
+    return vgm2fur::is_genesis_vgm_file(path, err_msg);
+}
+
+bool FurnaceBridge::import_vgm(const std::string& vgm_path, const std::string& fur_out_path) {
+    std::string err;
+    if (!vgm2fur::convert_vgm_to_fur_file(vgm_path, fur_out_path, &err)) {
+        status_msg = err.empty() ? "VGM import failed" : err;
+        return false;
+    }
+    if (!load_song(fur_out_path)) {
+        return false;
+    }
+    status_msg = "Imported VGM -> " + fur_out_path;
+    return true;
 }
 
 bool FurnaceBridge::export_wav(const std::string& path, int max_seconds) {

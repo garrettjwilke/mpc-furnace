@@ -35,7 +35,7 @@ enum {
 TrackerViews::TrackerViews() = default;
 
 static const char* kBrowserExts[] = {
-    ".fur", ".dmf", ".mod", ".s3m", ".xm", ".it", ".ftm",
+    ".fur", ".vgm", ".vgz", ".dmf", ".mod", ".s3m", ".xm", ".it", ".ftm",
     ".fui", ".dmp", ".tfi", ".vgi", ".opm", ".wav", nullptr
 };
 
@@ -49,6 +49,7 @@ void TrackerViews::init(const std::string& initial_dir) {
     cfg.extensions = kBrowserExts;
     ui_filebrowser_init(&fb_state_, &cfg);
     fb_initialized_ = true;
+    vgm_import_stage_ = 0;
 }
 
 void TrackerViews::stop_usb() {
@@ -1201,12 +1202,78 @@ void TrackerViews::draw_browser_view(struct ui* u, const struct input* in, Contr
         init(browse_dir_);
     }
 
+    auto& fb = FurnaceBridge::instance();
+
+    // Stage 2 of VGM import: enter destination .fur filename
+    if (vgm_import_stage_ == 2) {
+        cs.modal_lock = true;
+        int res = ui_text_editor(u, 0, 0, UI_W, UI_H, &text_ed_, ui_text_editor_style_default(), in);
+        if (res == UI_TEXT_CANCEL) {
+            cs.modal_lock = false;
+            vgm_import_stage_ = 1;
+        } else if (res == UI_TEXT_OK) {
+            cs.modal_lock = false;
+            vgm_import_stage_ = 0;
+
+            std::string fn = text_buf_;
+            if (fn.empty()) fn = "imported.fur";
+            std::string fn_lower = fn;
+            for (char& c : fn_lower) {
+                if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+            }
+            if (fn_lower.size() < 4 || fn_lower.substr(fn_lower.size() - 4) != ".fur") {
+                fn += ".fur";
+            }
+
+            std::string dst_path;
+            if (!fn.empty() && fn[0] == '/') {
+                dst_path = fn;
+            } else if (vgm_import_dst_dir_.empty()) {
+                dst_path = browse_dir_ + "/" + fn;
+            } else if (vgm_import_dst_dir_.back() == '/') {
+                dst_path = vgm_import_dst_dir_ + fn;
+            } else {
+                dst_path = vgm_import_dst_dir_ + "/" + fn;
+            }
+
+            bool ok = fb.import_vgm(vgm_import_src_path_, dst_path);
+            ui_filebrowser_refresh(&fb_state_);
+            if (ok) {
+                cs.cur_order = 0;
+                cs.cur_row = 0;
+                cs.cur_chan = 0;
+                cs.cur_ins = 0;
+                cs.active_view = AppView::Pattern;
+            } else {
+                std::snprintf(fb_state_.status_msg, sizeof(fb_state_.status_msg),
+                              "%s", fb.status_msg.c_str());
+                fb_state_.status_is_error = 1;
+            }
+        }
+        return;
+    }
+
+    // Stage 1 of VGM import: choose destination directory
+    if (vgm_import_stage_ == 1) {
+        int status = ui_filebrowser(u, 0, 0, UI_W, UI_H, &vgm_save_fb_, ui_filebrowser_style_default(), in);
+        if (status == UI_FB_CANCEL) {
+            vgm_import_stage_ = 0;
+        } else if (status == UI_FB_SELECT) {
+            vgm_import_dst_dir_ = vgm_save_fb_.selected_path[0]
+                                      ? vgm_save_fb_.selected_path
+                                      : vgm_save_fb_.cwd;
+            ui_text_editor_init(&text_ed_, text_buf_, sizeof(text_buf_), "SAVE .FUR FILENAME");
+            cs.modal_lock = true;
+            vgm_import_stage_ = 2;
+        }
+        return;
+    }
+
     int status = ui_filebrowser(u, 0, 0, UI_W, UI_H, &fb_state_, ui_filebrowser_style_default(), in);
     if (status == UI_FB_CANCEL) {
         cs.active_view = (cs.prev_view == AppView::Browser) ? AppView::Pattern : cs.prev_view;
     } else if (status == UI_FB_SELECT) {
         std::string path = fb_state_.selected_path;
-        auto& fb = FurnaceBridge::instance();
 
         // Check extension
         std::string ext;
@@ -1218,7 +1285,43 @@ void TrackerViews::draw_browser_view(struct ui* u, const struct input* in, Contr
             }
         }
 
-        if (ext == ".wav") {
+        if (ext == ".vgm" || ext == ".vgz") {
+            std::string err;
+            if (!fb.is_genesis_vgm(path, &err)) {
+                fb.status_msg = err.empty() ? "Not a Sega Genesis VGM" : err;
+                std::snprintf(fb_state_.status_msg, sizeof(fb_state_.status_msg),
+                              "%s", fb.status_msg.c_str());
+                fb_state_.status_is_error = 1;
+                return;
+            }
+
+            vgm_import_src_path_ = path;
+
+            // Default .fur filename based on the VGM file's stem
+            std::string base = path;
+            auto slash = base.rfind('/');
+            if (slash != std::string::npos) base = base.substr(slash + 1);
+            auto bdot = base.rfind('.');
+            if (bdot != std::string::npos && bdot > 0) base = base.substr(0, bdot);
+            if (base.empty()) base = "imported";
+            std::snprintf(text_buf_, sizeof(text_buf_), "%s.fur", base.c_str());
+
+            struct ui_filebrowser_config cfg{};
+            cfg.initial_path = fb_state_.cwd[0] ? fb_state_.cwd : browse_dir_.c_str();
+            cfg.internal_path = fb_state_.internal_path[0] ? fb_state_.internal_path : nullptr;
+            cfg.external_path = fb_state_.external_path[0] ? fb_state_.external_path : nullptr;
+            cfg.forced_root = fb_state_.forced_root[0] ? fb_state_.forced_root : nullptr;
+            cfg.title = "SAVE .FUR FOLDER";
+            cfg.action_label = "SAVE HERE";
+            cfg.options = UI_FB_OPT_DIRS_ONLY | UI_FB_OPT_SELECT_DIR |
+                          UI_FB_OPT_MKDIR | UI_FB_OPT_HIDE_DOTFILES |
+                          UI_FB_OPT_TOGGLE_DOTFILES;
+            ui_filebrowser_init(&vgm_save_fb_, &cfg);
+            std::snprintf(vgm_save_fb_.status_msg, sizeof(vgm_save_fb_.status_msg),
+                          "Choose folder & press B3 (SAVE HERE)");
+            vgm_save_fb_.status_is_error = 0;
+            vgm_import_stage_ = 1;
+        } else if (ext == ".wav") {
             int idx = fb.import_wav_sample(path);
             if (idx >= 0) cs.cur_sample = idx;
             cs.active_view = AppView::SampleWave;
@@ -1443,7 +1546,7 @@ void TrackerViews::draw_help_view(struct ui* u, const struct input* in, ControlS
         "PAD FX       : Instrument FM / Macro / Patch Editor",
         "MUTE/KNOB FX : Channel Mixer & Oscilloscope",
         "SAMPLE/CHOP  : Sample & Wavetable Editor",
-        "SAMPLE SEL   : File Browser (.fur/.dmf/.mod/.xm/.wav)",
+        "SAMPLE SEL   : File Browser (.fur/.vgm/.dmf/.mod/.wav)",
         "SHIFT+SMP SEL: Project Menu (Save / USB SD / Quit)",
         "PADS 1-16    : Chromatic Synth / Mixer Channel Mutes",
         "PAD BANK     : Octave 1..6 (Shift: Next Instrument)",

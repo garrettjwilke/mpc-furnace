@@ -26,13 +26,13 @@ DEFS = -D_DEFAULT_SOURCE -DHAVE_DIRENT_TYPE
 
 HOSTCC  = cc
 HOSTCXX = c++
-HOST_CFLAGS   = -O2 -g -Wall -Wextra -std=c11 $(DEFS) $(INCLUDES)
-HOST_CXXFLAGS = -O2 -g -Wall -Wextra -Wno-unused-parameter -std=c++14 $(DEFS) $(INCLUDES)
+HOST_CFLAGS   = -O2 -g -Wall -Wextra -std=c11 $(DEFS) $(INCLUDES) -I $(FUR_HOST_BUILD)
+HOST_CXXFLAGS = -O2 -g -Wall -Wextra -Wno-unused-parameter -std=c++14 $(DEFS) $(INCLUDES) -I $(FUR_HOST_BUILD)
 
 ZIGCC  = zig cc -target aarch64-linux-musl
 ZIGCXX = zig c++ -target aarch64-linux-musl
-DEV_CFLAGS   = -O2 -Wall -Wextra -std=c11 $(DEFS) $(INCLUDES)
-DEV_CXXFLAGS = -O2 -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-deprecated-literal-operator -std=c++14 $(DEFS) $(INCLUDES)
+DEV_CFLAGS   = -O2 -Wall -Wextra -std=c11 $(DEFS) $(INCLUDES) -I $(FUR_DEV_BUILD)
+DEV_CXXFLAGS = -O2 -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-deprecated-literal-operator -std=c++14 $(DEFS) $(INCLUDES) -I $(FUR_DEV_BUILD)
 
 JOBS ?= 8
 
@@ -69,6 +69,7 @@ HOST_TK_OBJS = $(HOST)/tk/ui.o \
                $(HOST)/tk/input.o
 
 HOST_APP_OBJS = $(HOST)/src/furnace_bridge.o \
+                $(HOST)/src/vgm2fur.o \
                 $(HOST)/src/control_surface.o \
                 $(HOST)/src/ui_views.o \
                 $(HOST)/test/test_runner.o
@@ -76,10 +77,10 @@ HOST_APP_OBJS = $(HOST)/src/furnace_bridge.o \
 $(HOST)/tk/%.o: $(TOOLKIT)/%.c | $(HOST)/tk
 	$(HOSTCC) $(HOST_CFLAGS) -MMD -MP -c -o $@ $<
 
-$(HOST)/src/%.o: src/%.cpp | $(HOST)/src
+$(HOST)/src/%.o: src/%.cpp | $(HOST)/src $(FUR_HOST_BUILD)/furnace-libs.txt
 	$(HOSTCXX) $(HOST_CXXFLAGS) -MMD -MP -c -o $@ $<
 
-$(HOST)/test/%.o: test/%.cpp | $(HOST)/test
+$(HOST)/test/%.o: test/%.cpp | $(HOST)/test $(FUR_HOST_BUILD)/furnace-libs.txt
 	$(HOSTCXX) $(HOST_CXXFLAGS) -MMD -MP -c -o $@ $<
 
 $(HOST)/test-runner: $(FUR_HOST_BUILD)/furnace-libs.txt $(HOST_TK_OBJS) $(HOST_APP_OBJS)
@@ -104,6 +105,7 @@ DEV_TK_OBJS = $(DEV)/tk/app.o \
 DEV_C_OBJS = $(DEV)/src/audio_engine.o
 
 DEV_CXX_OBJS = $(DEV)/src/furnace_bridge.o \
+               $(DEV)/src/vgm2fur.o \
                $(DEV)/src/control_surface.o \
                $(DEV)/src/ui_views.o \
                $(DEV)/src/main.o
@@ -114,7 +116,7 @@ $(DEV)/tk/%.o: $(TOOLKIT)/%.c | $(DEV)/tk
 $(DEV)/src/%.o: src/%.c | $(DEV)/src
 	$(ZIGCC) $(DEV_CFLAGS) -MMD -MP -c -o $@ $<
 
-$(DEV)/src/%.o: src/%.cpp | $(DEV)/src
+$(DEV)/src/%.o: src/%.cpp | $(DEV)/src $(FUR_DEV_BUILD)/furnace-libs.txt
 	$(ZIGCXX) $(DEV_CXXFLAGS) -MMD -MP -c -o $@ $<
 
 $(BIN)/mpc-furnace: $(FUR_DEV_BUILD)/furnace-libs.txt $(DEV_TK_OBJS) $(DEV_C_OBJS) $(DEV_CXX_OBJS) | $(BIN)
