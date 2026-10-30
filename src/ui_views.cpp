@@ -1406,6 +1406,14 @@ void TrackerViews::draw_browser_view(struct ui *u, const struct input *in,
     cs.modal_lock = true;
     int res = ui_text_editor(u, 0, 0, UI_W, UI_H, &text_ed_,
                              ui_text_editor_style_default(), in);
+
+    // Render the locked .fur extension immediately following the name
+    int ty = 58;
+    int ext_x = 16 + (text_ed_.len + (text_ed_.cursor == text_ed_.len ? 1 : 0)) * 6;
+    if (ext_x + 24 < UI_W - 16) {
+      ui_text(u, ext_x, ty, ".fur", COL_INS, 1);
+    }
+
     if (res == UI_TEXT_CANCEL) {
       cs.modal_lock = false;
       vgm_import_stage_ = 2;
@@ -1414,17 +1422,23 @@ void TrackerViews::draw_browser_view(struct ui *u, const struct input *in,
       vgm_import_stage_ = 0;
 
       std::string fn = text_buf_;
+      while (!fn.empty() && (fn.front() == ' ' || fn.front() == '\t'))
+        fn.erase(fn.begin());
+      while (!fn.empty() && (fn.back() == ' ' || fn.back() == '\t'))
+        fn.pop_back();
+
+      // If user typed .fur at the end, strip it so we always append .fur cleanly
+      if (fn.size() >= 4) {
+        std::string tail = fn.substr(fn.size() - 4);
+        for (char &c : tail)
+          c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        if (tail == ".fur") {
+          fn = fn.substr(0, fn.size() - 4);
+        }
+      }
       if (fn.empty())
-        fn = "imported.fur";
-      std::string fn_lower = fn;
-      for (char &c : fn_lower) {
-        if (c >= 'A' && c <= 'Z')
-          c = static_cast<char>(c - 'A' + 'a');
-      }
-      if (fn_lower.size() < 4 ||
-          fn_lower.substr(fn_lower.size() - 4) != ".fur") {
-        fn += ".fur";
-      }
+        fn = "imported";
+      fn += ".fur";
 
       std::string dst_path;
       if (!fn.empty() && fn[0] == '/') {
@@ -1581,7 +1595,7 @@ void TrackerViews::draw_browser_view(struct ui *u, const struct input *in,
         base = base.substr(0, bdot);
       if (base.empty())
         base = "imported";
-      std::snprintf(text_buf_, sizeof(text_buf_), "%s.fur", base.c_str());
+      std::snprintf(text_buf_, sizeof(text_buf_), "%s", base.c_str());
 
       vgm_import_stage_ = 1;
       cs.modal_lock = true;
