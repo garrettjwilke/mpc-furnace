@@ -188,6 +188,39 @@ int main() {
     views.draw_frame(&u, &in, cs.state);
     assert(count_nonzero_pixels(fb_px.data(), UI_BG) > 500);
 
+    // USB SD: menu row opens the toolkit screen, eject returns to the menu.
+    ui_usb_sd_set_mock(1, 0);
+    cs.state.active_view = AppView::Menu;
+    cs.state.modal_lock = false;
+    in.encoder = 6;
+    in.encoder_press = 1;
+    cs.process_frame(&u, &in);
+    assert(views.draw_frame(&u, &in, cs.state) == 0);
+    assert(cs.state.modal_lock);
+    assert(cs.state.active_view == AppView::Menu);
+
+    in.encoder = 0;
+    in.encoder_press = 0;
+    in.down = 1u << IN_SEQ;
+    cs.process_frame(&u, &in);
+    assert(views.draw_frame(&u, &in, cs.state) == 0);
+    assert(cs.state.modal_lock);
+    assert(cs.state.active_view == AppView::Menu);
+
+    in.down = 0;
+    in.encoder_press = 1;
+    cs.process_frame(&u, &in);
+    assert(views.draw_frame(&u, &in, cs.state) == 0);
+    assert(cs.state.modal_lock);
+
+    in.encoder_press = 0;
+    cs.process_frame(&u, &in);
+    assert(views.draw_frame(&u, &in, cs.state) == 0);
+    assert(!cs.state.modal_lock);
+    assert(cs.state.active_view == AppView::Menu);
+    assert(count_nonzero_pixels(fb_px.data(), UI_BG) > 500);
+    views.stop_usb();
+
     fb.shutdown();
     std::printf("All mpc-furnace tests passed!\n");
     return 0;

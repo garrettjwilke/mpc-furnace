@@ -51,6 +51,25 @@ void TrackerViews::init(const std::string& initial_dir) {
     fb_initialized_ = true;
 }
 
+void TrackerViews::stop_usb() {
+    if (ui_usb_sd_is_active(&usb_)) ui_usb_sd_stop(&usb_);
+    usb_open_ = false;
+}
+
+static struct ui_usb_sd_style furnace_usb_style() {
+    struct ui_usb_sd_style st = {
+        .bg = COL_BG,
+        .text = COL_TEXT,
+        .dim = COL_DIM,
+        .hl = COL_HL,
+        .box = COL_PANEL,
+        .border = COL_GRID_LINE,
+        .bar = COL_CURSOR_ROW,
+        .active_text = COL_BG,
+    };
+    return st;
+}
+
 static struct ui_soft_style make_soft_style(bool shift) {
     struct ui_soft_style st{};
     st.fill = shift ? 0x2a2438 : 0x242c3a;
@@ -1220,7 +1239,7 @@ void TrackerViews::draw_browser_view(struct ui* u, const struct input* in, Contr
 }
 
 // =============================================================================
-// 7. PROJECT & SYSTEM MENU VIEW (New Preset, Save .fur, Metadata, Export, Quit)
+// 7. PROJECT & SYSTEM MENU VIEW (New Preset, Save .fur, Metadata, Export, USB SD, Quit)
 // =============================================================================
 int TrackerViews::draw_menu_view(struct ui* u, const struct input* in, ControlSurfaceState& cs) {
     auto& fb = FurnaceBridge::instance();
@@ -1305,7 +1324,7 @@ int TrackerViews::draw_menu_view(struct ui* u, const struct input* in, ControlSu
 
     draw_header(u, cs, "Preset", "-", "-");
 
-    const int menu_items = 7;
+    const int menu_items = 8;
     if (in && in->encoder != 0) {
         menu_cursor_ = (menu_cursor_ + in->encoder + menu_items) % menu_items;
     }
@@ -1355,6 +1374,12 @@ int TrackerViews::draw_menu_view(struct ui* u, const struct input* in, ControlSu
         } else if (menu_cursor_ == 5) {
             fb.export_wav(browse_dir_ + "/export.wav", 30);
         } else if (menu_cursor_ == 6) {
+            ui_usb_sd_init(&usb_);
+            usb_open_ = true;
+            cs.modal_lock = true;
+            ui_usb_sd(u, &usb_, furnace_usb_style(), nullptr);
+            return 0;
+        } else if (menu_cursor_ == 7) {
             if (fb.dirty) {
                 confirm_quit_ = true;
                 cs.modal_lock = true;
@@ -1367,26 +1392,27 @@ int TrackerViews::draw_menu_view(struct ui* u, const struct input* in, ControlSu
 
     ui_box(u, 4, 42, 312, 178, (struct ui_paint){.fill_set = 1, .fill = COL_PANEL});
 
-    char rows[7][56];
+    char rows[8][56];
     std::snprintf(rows[0], sizeof(rows[0]), "New Song Preset: < %s >", fb.get_preset(selected_preset_).name);
     std::snprintf(rows[1], sizeof(rows[1]), "Save Song (.fur)...");
     std::snprintf(rows[2], sizeof(rows[2]), "Song Title : %.28s", eng.song.name.c_str());
     std::snprintf(rows[3], sizeof(rows[3]), "Author Name: %.28s", eng.song.author.c_str());
     std::snprintf(rows[4], sizeof(rows[4]), "Export VGM Register Dump (export.vgm)");
     std::snprintf(rows[5], sizeof(rows[5]), "Export Audio WAV (export.wav)");
-    std::snprintf(rows[6], sizeof(rows[6]), "Quit mpc-furnace");
+    std::snprintf(rows[6], sizeof(rows[6]), "%s", UI_USB_SD_LABEL);
+    std::snprintf(rows[7], sizeof(rows[7]), "Quit mpc-furnace");
 
     for (int i = 0; i < menu_items; i++) {
-        int ry = 48 + i * 23;
+        int ry = 48 + i * 20;
         bool sel = (i == menu_cursor_);
-        ui_box(u, 8, ry, 304, 21, (struct ui_paint){
+        ui_box(u, 8, ry, 304, 18, (struct ui_paint){
             .fill_set = 1,
             .fill = sel ? COL_CURSOR_ROW : static_cast<uint32_t>(COL_PANEL_ALT),
             .border_set = sel ? 1 : 0,
             .border = COL_HL,
             .border_px = 1
         });
-        ui_text(u, 14, ry + 4, rows[i], sel ? COL_HL : COL_TEXT, 1);
+        ui_text(u, 14, ry + 3, rows[i], sel ? COL_HL : COL_TEXT, 1);
     }
 
     draw_footer(u, cs);
@@ -1418,7 +1444,7 @@ void TrackerViews::draw_help_view(struct ui* u, const struct input* in, ControlS
         "MUTE/KNOB FX : Channel Mixer & Oscilloscope",
         "SAMPLE/CHOP  : Sample & Wavetable Editor",
         "SAMPLE SEL   : File Browser (.fur/.dmf/.mod/.xm/.wav)",
-        "SHIFT+SMP SEL: Project Menu (New Chip Preset/Save/Quit)",
+        "SHIFT+SMP SEL: Project Menu (Save / USB SD / Quit)",
         "PADS 1-16    : Chromatic Synth / Mixer Channel Mutes",
         "PAD BANK     : Octave 1..6 (Shift: Next Instrument)",
         "16 LEVELS    : Velocity / Pitch Interval Pad Modes",
@@ -1435,6 +1461,14 @@ void TrackerViews::draw_help_view(struct ui* u, const struct input* in, ControlS
 // TOP-LEVEL FRAME DISPATCH
 // =============================================================================
 int TrackerViews::draw_frame(struct ui* u, const struct input* in, ControlSurfaceState& cs) {
+    if (usb_open_) {
+        int rc = ui_usb_sd(u, &usb_, furnace_usb_style(), in);
+        if (rc == UI_USB_SD_ACTIVE) return 0;
+        usb_open_ = false;
+        cs.modal_lock = false;
+        init(browse_dir_);
+    }
+
     ui_clear(u, COL_BG);
 
     switch (cs.active_view) {

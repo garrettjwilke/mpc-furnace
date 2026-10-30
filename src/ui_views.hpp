@@ -7,6 +7,7 @@ extern "C" {
 #include "ui.h"
 #include "widgets.h"
 #include "filebrowser.h"
+#include "usb_sd.h"
 }
 
 class TrackerViews {
@@ -14,6 +15,9 @@ public:
     TrackerViews();
 
     void init(const std::string& initial_dir);
+
+    // Unbind the SD card if USB storage is still active. Safe to call on quit.
+    void stop_usb();
 
     // Returns non-zero if the application should exit
     int draw_frame(struct ui* u, const struct input* in, ControlSurfaceState& cs);
@@ -53,6 +57,10 @@ private:
     struct ui_filebrowser fb_state_{};
     bool fb_initialized_ = false;
     std::string browse_dir_ = ".";
+
+    // USB SD card access. The toolkit screen owns the frame while this is open.
+    bool usb_open_ = false;
+    struct ui_usb_sd usb_{};
 
     // Menu & Text Editor state
     int menu_cursor_ = 0;

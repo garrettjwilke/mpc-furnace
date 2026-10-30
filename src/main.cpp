@@ -114,6 +114,8 @@ int main(int argc, char** argv) {
 
     int rc = app_run(app_frame_cb, &ctx);
 
+    ctx.views.stop_usb();
+
     if (ctx.ae) {
         audio_engine_stop(ctx.ae);
         audio_engine_destroy(ctx.ae);

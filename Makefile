@@ -65,6 +65,7 @@ furnace-device: $(FUR_DEV_BUILD)/furnace-libs.txt
 HOST_TK_OBJS = $(HOST)/tk/ui.o \
                $(HOST)/tk/widgets.o \
                $(HOST)/tk/filebrowser.o \
+               $(HOST)/tk/usb_sd.o \
                $(HOST)/tk/input.o
 
 HOST_APP_OBJS = $(HOST)/src/furnace_bridge.o \
@@ -97,6 +98,7 @@ DEV_TK_OBJS = $(DEV)/tk/app.o \
               $(DEV)/tk/ui.o \
               $(DEV)/tk/widgets.o \
               $(DEV)/tk/filebrowser.o \
+              $(DEV)/tk/usb_sd.o \
               $(DEV)/tk/input.o
 
 DEV_C_OBJS = $(DEV)/src/audio_engine.o
