@@ -1,7 +1,9 @@
 # Makefile for mpc-furnace (Furnace Tracker port for the Akai MPC Sample)
 
 BUILD   = build
-BIN     = bin
+APP     = $(BUILD)/mpc-furnace
+PACK    = mpc-ui-toolkit/tools/pack-autorun.sh
+ZIP     = $(BUILD)/mpc-furnace.zip
 HOST    = $(BUILD)/host
 DEV     = $(BUILD)/device
 FUR_HOST_BUILD = $(BUILD)/furnace-host
@@ -38,7 +40,7 @@ JOBS ?= 8
 
 .PHONY: all furnace-host furnace-device test deploy clean
 
-all: $(BIN)/mpc-furnace
+all: $(ZIP)
 
 # -----------------------------------------------------------------------------
 # CMake static Furnace Engine builds (Host & Cross-Compiled Device)
@@ -119,21 +121,24 @@ $(DEV)/src/%.o: src/%.c | $(DEV)/src
 $(DEV)/src/%.o: src/%.cpp | $(DEV)/src $(FUR_DEV_BUILD)/furnace-libs.txt
 	$(ZIGCXX) $(DEV_CXXFLAGS) -MMD -MP -c -o $@ $<
 
-$(BIN)/mpc-furnace: $(FUR_DEV_BUILD)/furnace-libs.txt $(DEV_TK_OBJS) $(DEV_C_OBJS) $(DEV_CXX_OBJS) | $(BIN)
+$(APP): $(FUR_DEV_BUILD)/furnace-libs.txt $(DEV_TK_OBJS) $(DEV_C_OBJS) $(DEV_CXX_OBJS) | $(BUILD)
 	$(ZIGCXX) -static -O2 -s -o $@ $(DEV_TK_OBJS) $(DEV_C_OBJS) $(DEV_CXX_OBJS) \
 		$$(cat $(FUR_DEV_BUILD)/furnace-libs.txt) -lpthread -lm
+
+$(ZIP): $(APP) $(PACK)
+	$(PACK) --name mpc-furnace --bin $(APP) --out $(BUILD)
 
 # -----------------------------------------------------------------------------
 # Directories, Deploy & Clean
 # -----------------------------------------------------------------------------
-$(HOST)/tk $(HOST)/src $(HOST)/test $(DEV)/tk $(DEV)/src $(BIN):
+$(BUILD) $(HOST)/tk $(HOST)/src $(HOST)/test $(DEV)/tk $(DEV)/src:
 	mkdir -p $@
 
-deploy: $(BIN)/mpc-furnace
-	../mpc-boot-thingy/setup.sh --ssh --add $(BIN)/mpc-furnace --title "mpc-furnace"
+deploy: $(ZIP)
+	../mpc-boot-thingy/setup.sh --ssh --add $(ZIP) --title "mpc-furnace"
 
 clean:
-	rm -rf $(BUILD) $(BIN)
+	rm -rf $(BUILD) bin
 
 -include $(wildcard $(HOST)/tk/*.d $(HOST)/src/*.d $(HOST)/test/*.d $(DEV)/tk/*.d $(DEV)/src/*.d)
 
